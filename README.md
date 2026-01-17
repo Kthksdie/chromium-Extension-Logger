@@ -22,7 +22,7 @@ A Web Extension that tracks tab activity (loads, title changes, focus switches, 
 2.  Open Chrome (or Edge/Brave) and navigate to `chrome://extensions`.
 3.  Enable **Developer mode** (top right toggle).
 4.  Click **Load unpacked**.
-5.  Select the project directory.
+5.  Select the `src\extension` folder inside the project directory.
 
 ## Usage
 

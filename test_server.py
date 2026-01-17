@@ -11,6 +11,8 @@ class LogRequestHandler(http.server.BaseHTTPRequestHandler):
             post_data = self.rfile.read(content_length)
             try:
                 log_entry = json.loads(post_data.decode('utf-8'))
+                # Add the sender's IP to the log entry
+                log_entry['ip'] = self.client_address[0]
                 print(f"Received Log: {json.dumps(log_entry, indent=2)}")
                 self.send_response(200)
                 self.end_headers()
