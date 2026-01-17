@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carbon Matrix Console</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700&family=JetBrains+Mono:wght@300;500&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-black: #000000;
+            --bg-deep: #080808;
+            --bg-surface: #111111;
+            --carbon-line: #1f1f1f;
+            --accent-glow: #c1ff00;
+            --text-dim: #666666;
+            --text-main: #e0e0e0;
+            --font-mono: 'JetBrains Mono', monospace;
+            --font-sans: 'Inter', sans-serif;
+            --alert: #ff3333;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body,
+        html {
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-black);
+            color: var(--text-main);
+            font-family: var(--font-mono);
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* The Etch Overlay */
+        .viewport {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 16px;
+        }
+
+        .viewport::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: radial-gradient(circle at center, transparent 0%, rgba(0, 0, 0, 0.4) 100%);
+            z-index: 10;
+        }
+
+        /* Noise Texture for Materiality */
+        .noise {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.04;
+            z-index: 100;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 60px;
+            z-index: 20;
+        }
+
+        .brand {
+            font-family: var(--font-sans);
+            font-size: 0.75rem;
+            letter-spacing: 0.4em;
+            text-transform: uppercase;
+            color: var(--accent-glow);
+            border-left: 2px solid var(--accent-glow);
+            padding-left: 15px;
+            line-height: 1;
+        }
+
+        .system-meta {
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            text-align: right;
+            line-height: 1.6;
+        }
+
+        /* Data Grid Table */
+        .console-container {
+            flex-grow: 1;
+            border-top: 1px solid var(--carbon-line);
+            position: relative;
+            z-index: 20;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .grid-row {
+            display: grid;
+            grid-template-columns: 180px 140px 1fr 200px 150px;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--carbon-line);
+            transition: background 0.2s ease, transform 0.2s ease;
+            cursor: crosshair;
+            align-items: center;
+            opacity: 0;
+            animation: slideIn 0.5s forwards;
+            flex-shrink: 0;
+        }
+
+        .grid-row:hover {
+            background: rgba(193, 255, 0, 0.03);
+            transform: translateX(5px);
+        }
+
+        .grid-row.header {
+            border-bottom: 2px solid var(--text-dim);
+            color: var(--text-dim);
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            padding: 10px 0;
+            animation-delay: 0.1s;
+            position: sticky;
+            top: 0;
+            background: var(--bg-deep);
+            z-index: 25;
+            opacity: 1;
+        }
+
+        .cell {
+            padding: 0 10px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .cell.type {
+            font-weight: 500;
+            color: var(--text-main);
+        }
+
+        .cell.timestamp {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+
+        .cell.title {
+            color: var(--text-main);
+            font-size: 0.9rem;
+        }
+
+        .cell.domain {
+            color: var(--text-dim);
+            font-size: 0.8rem;
+        }
+
+        .cell.ip {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--accent-glow);
+            text-shadow: 0 0 10px rgba(193, 255, 0, 0.3);
+            text-align: right;
+        }
+
+        /* Matrix Scanline Effect */
+        .scanline {
+            width: 100%;
+            height: 2px;
+            background: rgba(193, 255, 0, 0.1);
+            position: absolute;
+            z-index: 30;
+            pointer-events: none;
+            animation: scan 8s linear infinite;
+        }
+
+        @keyframes scan {
+            0% {
+                top: 0;
+                opacity: 0;
+            }
+
+            5% {
+                opacity: 0.5;
+            }
+
+            95% {
+                opacity: 0.5;
+            }
+
+            100% {
+                top: 100%;
+                opacity: 0;
+            }
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+                filter: blur(5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+                filter: blur(0);
+            }
+        }
+
+        /* Scrollbar styling */
+        .console-container::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .console-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .console-container::-webkit-scrollbar-thumb {
+            background: var(--carbon-line);
+            border-radius: 2px;
+        }
+
+        .console-container::-webkit-scrollbar-thumb:hover {
+            background: var(--text-dim);
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background: var(--accent-glow);
+            border-radius: 50%;
+            margin-right: 8px;
+            box-shadow: 0 0 8px var(--accent-glow);
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.offline {
+            background: var(--alert);
+            box-shadow: 0 0 8px var(--alert);
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="viewport">
+        <div class="scanline"></div>
+
+        <header>
+            <div class="brand">
+                Event Telemetry v2.0.4<br>
+                <span style="font-size: 0.5rem; opacity: 0.6; letter-spacing: 0.2em;">Matrix Etch</span>
+            </div>
+            <div class="system-meta">
+                <span id="status-dot" class="status-indicator"></span><span id="sys-status">SYSTEM ACTIVE</span> //
+                NODE: CARBON_01<br>
+                AUTH_LEVEL: ROOT_ACCESS<br>
+                TIMESTAMP: <span id="clock">00:00:00</span>
+            </div>
+        </header>
+
+        <div class="console-container">
+            <div class="grid-row header">
+                <div class="cell">Timestamp</div>
+                <div class="cell">Type</div>
+                <div class="cell">Event Title</div>
+                <div class="cell">Domain Context</div>
+                <div class="cell" style="text-align: right;">IP Address</div>
+            </div>
+
+            <div id="event-target">
+                <!-- Events will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const target = document.getElementById('event-target');
+        const statusDot = document.getElementById('status-dot');
+        const sysStatus = document.getElementById('sys-status');
+
+        function formatTime() {
+            const now = new Date();
+            return now.toLocaleTimeString('en-GB', { hour12: false }) + '.' + now.getMilliseconds().toString().padStart(3, '0');
+        }
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toLocaleTimeString('en-GB', { hour12: false });
+        }
+
+        function addLogEntry(data) {
+            const row = document.createElement('div');
+            row.className = 'grid-row';
+
+            const timestamp = formatTime();
+            const ip = data.ip || 'UNKNOWN';
+
+            let type = "LOG";
+            if (data.type) type = data.type;
+
+            let title = data.title || data.url || "Unknown Event";
+
+            let domain = "local";
+            if (data.domain) domain = data.domain;
+            else if (data.url) {
+                try { domain = new URL(data.url).hostname; } catch (e) { }
+            }
+
+            row.innerHTML = `
+                <div class="cell timestamp">${timestamp}</div>
+                <div class="cell type">${type}</div>
+                <div class="cell title">${title}</div>
+                <div class="cell domain">${domain}</div>
+                <div class="cell ip">${ip}</div>
+            `;
+
+            target.prepend(row);
+
+            if (target.children.length > 200) {
+                target.lastElementChild.remove();
+            }
+        }
+
+        let isConnected = false;
+        function connect() {
+            const evtSource = new EventSource("/events");
+
+            evtSource.onopen = function () {
+                isConnected = true;
+                sysStatus.textContent = "SYSTEM ACTIVE";
+                statusDot.classList.remove('offline');
+            };
+
+            evtSource.onmessage = function (event) {
+                const data = JSON.parse(event.data);
+                addLogEntry(data);
+            };
+
+            evtSource.onerror = function (err) {
+                isConnected = false;
+                sysStatus.textContent = "CONNECTION LOST";
+                statusDot.classList.add('offline');
+                evtSource.close();
+                setTimeout(connect, 3000);
+            };
+        }
+
+        setInterval(updateClock, 1000);
+        updateClock();
+        connect();
+    </script>
+</body>
+
+</html>

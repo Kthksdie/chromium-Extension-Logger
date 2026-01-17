@@ -40,18 +40,12 @@
         /* The CRT Screen Container */
         .terminal {
             position: relative;
-            width: 90vw;
-            max-width: 1100px;
-            height: 80vh;
-            background: var(--crt-bg);
-            border-radius: 40px;
-            padding: 4rem;
+            width: 99%;
+            height: 99%;
+            border-radius: 3px;
+            padding: 19px;
             overflow: hidden;
-            box-shadow:
-                inset 0 0 100px rgba(0, 0, 0, 0.9),
-                0 0 50px rgba(34, 255, 102, 0.1);
             border: 2px solid #1a1a1a;
-            transform: rotateX(2deg) rotateY(-1deg);
         }
 
         /* Phosphor Burn & Scanlines Overlay */
@@ -329,7 +323,7 @@
         <div class="scanline-bar"></div>
 
         <div class="terminal-content">
-            <header>
+            <header style="display: none;">
                 <h1>Trace_Log_System v4.0</h1>
                 <div class="status-bits">
                     BAUD: 9600 // SECTOR: 7-G // MONITORING: <span id="status-val"
@@ -348,11 +342,6 @@
     <script>
         // Subtle Mouse Interaction for 3D effect
         const terminal = document.querySelector('.terminal');
-        document.addEventListener('mousemove', (e) => {
-            const xAxis = (window.innerWidth / 2 - e.pageX) / 50;
-            const yAxis = (window.innerHeight / 2 - e.pageY) / 50;
-            terminal.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`;
-        });
 
         // Log Logic
         const logContainer = document.getElementById('logs');
