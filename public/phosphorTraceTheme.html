@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phosphor Trace Log Stream</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@800&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --phosphor-green: #22ff66;
+            --phosphor-dim: #004411;
+            --crt-bg: #0a0c0a;
+            --scanline-color: rgba(18, 16, 16, 0.1);
+            --glow: 0 0 8px rgba(34, 255, 102, 0.6), 0 0 15px rgba(34, 255, 102, 0.3);
+            --phosphor-alert: #ff3333;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #000;
+            color: var(--phosphor-green);
+            font-family: 'JetBrains Mono', monospace;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            perspective: 1000px;
+        }
+
+        /* The CRT Screen Container */
+        .terminal {
+            position: relative;
+            width: 90vw;
+            max-width: 1100px;
+            height: 80vh;
+            background: var(--crt-bg);
+            border-radius: 40px;
+            padding: 4rem;
+            overflow: hidden;
+            box-shadow:
+                inset 0 0 100px rgba(0, 0, 0, 0.9),
+                0 0 50px rgba(34, 255, 102, 0.1);
+            border: 2px solid #1a1a1a;
+            transform: rotateX(2deg) rotateY(-1deg);
+        }
+
+        /* Phosphor Burn & Scanlines Overlay */
+        .crt-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+            background:
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+                linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 3px, 3px 100%;
+        }
+
+        /* Flicker Animation */
+        @keyframes flicker {
+            0% {
+                opacity: 0.985;
+            }
+
+            5% {
+                opacity: 0.95;
+            }
+
+            10% {
+                opacity: 0.99;
+            }
+
+            15% {
+                opacity: 0.92;
+            }
+
+            20% {
+                opacity: 0.98;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .terminal-content {
+            animation: flicker 0.15s infinite;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header UI */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 4rem;
+            border-bottom: 1px solid var(--phosphor-dim);
+            padding-bottom: 1rem;
+        }
+
+        h1 {
+            font-family: 'Inter', sans-serif;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: 0.4em;
+            text-shadow: var(--glow);
+        }
+
+        .status-bits {
+            font-size: 0.7rem;
+            opacity: 0.7;
+        }
+
+        .status-value {
+            font-weight: bold;
+        }
+
+        .status-value.offline {
+            color: var(--phosphor-alert);
+            text-shadow: 0 0 8px red;
+        }
+
+        /* Log Entry Styling */
+        .log-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            scrollbar-width: none;
+            display: flex;
+            flex-direction: column-reverse;
+            /* Newest at bottom visually, or handle via prepend */
+        }
+
+        /* Actually, generic prepend logic puts new at top, so column-reverse might flip it. 
+           Let's stick to standard flow and prepend. */
+        .log-container {
+            display: block;
+        }
+
+        .log-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        .log-entry {
+            display: grid;
+            grid-template-columns: 200px 1fr 180px;
+            gap: 2rem;
+            padding: 1.5rem 0;
+            border-bottom: 1px solid rgba(34, 255, 102, 0.05);
+            transition: all 0.2s ease;
+            position: relative;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: entryReveal 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        }
+
+        .log-entry:nth-child(2) {
+            animation-delay: 0.1s;
+        }
+
+        @keyframes entryReveal {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .log-entry:hover {
+            background: rgba(34, 255, 102, 0.03);
+            text-shadow: 0 0 12px var(--phosphor-green);
+        }
+
+        .timestamp {
+            font-size: 0.85rem;
+            color: var(--phosphor-dim);
+        }
+
+        .main-data {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .type-tag {
+            font-weight: 800;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .type-tag::before {
+            content: '>';
+            color: var(--phosphor-green);
+        }
+
+        .url-path {
+            font-size: 0.8rem;
+            opacity: 0.6;
+            word-break: break-all;
+        }
+
+        .domain {
+            font-size: 0.75rem;
+            opacity: 0.8;
+            color: var(--phosphor-green);
+        }
+
+        .meta-data {
+            text-align: right;
+            font-size: 0.85rem;
+        }
+
+        .ip-addr {
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border: 1px solid var(--phosphor-green);
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            border-radius: 2px;
+        }
+
+        .raw-content {
+            font-size: 0.75rem;
+            opacity: 0.5;
+            margin-top: 0.5rem;
+            white-space: pre-wrap;
+            display: none;
+            /* Hidden by default, maybe show on hover? */
+        }
+
+        .log-entry:hover .raw-content {
+            display: block;
+        }
+
+        /* Screen Grain with SVG Filter */
+        .grain-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 15;
+            opacity: 0.06;
+            pointer-events: none;
+        }
+
+        /* Scanline motion */
+        .scanline-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100px;
+            background: linear-gradient(to bottom,
+                    transparent 0%,
+                    rgba(34, 255, 102, 0.03) 50%,
+                    transparent 100%);
+            animation: scanline-move 8s linear infinite;
+            pointer-events: none;
+            z-index: 11;
+        }
+
+        @keyframes scanline-move {
+            0% {
+                transform: translateY(-100%);
+            }
+
+            100% {
+                transform: translateY(800px);
+            }
+        }
+
+        .glitch-hint {
+            position: absolute;
+            bottom: 4rem;
+            right: 4rem;
+            font-size: 0.6rem;
+            letter-spacing: 0.2em;
+            color: var(--phosphor-dim);
+        }
+
+        .waiting-message {
+            text-align: center;
+            padding: 2rem;
+            opacity: 0.5;
+            animation: blink 2s infinite;
+        }
+
+        @keyframes blink {
+            50% {
+                opacity: 0.2;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <svg style="display:none">
+        <filter id="grain">
+            <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
+            <feColorMatrix type="saturate" values="0" />
+        </filter>
+    </svg>
+
+    <div class="terminal">
+        <div class="grain-overlay" style="filter: url(#grain);"></div>
+        <div class="crt-overlay"></div>
+        <div class="scanline-bar"></div>
+
+        <div class="terminal-content">
+            <header>
+                <h1>Trace_Log_System v4.0</h1>
+                <div class="status-bits">
+                    BAUD: 9600 // SECTOR: 7-G // MONITORING: <span id="status-val"
+                        class="status-value">CONNECTING...</span>
+                </div>
+            </header>
+
+            <div class="log-container" id="logs">
+                <div class="waiting-message">WAITING FOR SIGNAL STREAM...</div>
+            </div>
+
+            <div class="glitch-hint">BUFFER_ID: 0x2A499FF</div>
+        </div>
+    </div>
+
+    <script>
+        // Subtle Mouse Interaction for 3D effect
+        const terminal = document.querySelector('.terminal');
+        document.addEventListener('mousemove', (e) => {
+            const xAxis = (window.innerWidth / 2 - e.pageX) / 50;
+            const yAxis = (window.innerHeight / 2 - e.pageY) / 50;
+            terminal.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`;
+        });
+
+        // Log Logic
+        const logContainer = document.getElementById('logs');
+        const statusVal = document.getElementById('status-val');
+        let isConnected = false;
+        let hasLogs = false;
+
+        function connect() {
+            const evtSource = new EventSource("/events");
+
+            evtSource.onopen = function () {
+                isConnected = true;
+                statusVal.textContent = "ACTIVE";
+                statusVal.classList.remove('offline');
+            };
+
+            evtSource.onmessage = function (event) {
+                if (!hasLogs) {
+                    logContainer.innerHTML = '';
+                    hasLogs = true;
+                }
+                const data = JSON.parse(event.data);
+                addLogEntry(data);
+            };
+
+            evtSource.onerror = function (err) {
+                isConnected = false;
+                statusVal.textContent = "OFFLINE - RETRYING";
+                statusVal.classList.add('offline');
+                evtSource.close();
+                setTimeout(connect, 3000);
+            };
+        }
+
+        function addLogEntry(data) {
+            const el = document.createElement('div');
+            el.className = 'log-entry';
+
+            const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false }) + '.' + new Date().getMilliseconds().toString().padStart(3, '0');
+            const ip = data.ip || 'UNKNOWN';
+
+            // Try to extract relevant fields
+            let type = "LOG EVENT";
+            if (data.type) type = data.type.toUpperCase();
+            if (data.event) type = data.event.toUpperCase();
+
+            let url = data.url || "";
+            let domainSource = "SRC: UNKNOWN";
+
+            if (url) {
+                try {
+                    const hostname = new URL(url).hostname;
+                    domainSource = `SRC: ${hostname}`;
+                } catch (e) { }
+            } else if (data.title) {
+                url = data.title; // fallback
+            }
+
+            const badge = data.level || "INFO";
+            const raw = JSON.stringify(data, null, 2);
+
+            el.innerHTML = `
+                <div class="timestamp">
+                    [ ${timestamp} ]
+                </div>
+                <div class="main-data">
+                    <div class="type-tag">${type}</div>
+                    <div class="url-path">${url}</div>
+                    <div class="domain">${domainSource}</div>
+                    <div class="raw-content">${raw}</div>
+                </div>
+                <div class="meta-data">
+                    <span class="ip-addr">${ip}</span>
+                    <span class="badge">${badge}</span>
+                </div>
+            `;
+
+            logContainer.prepend(el);
+
+            // Keep DOM size manageable
+            if (logContainer.children.length > 100) {
+                logContainer.lastElementChild.remove();
+            }
+        }
+
+        connect();
+    </script>
+</body>
+
+</html>

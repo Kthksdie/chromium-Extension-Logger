@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Stream</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+            --accent: #3b82f6;
+            --border: #334155;
+            --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+            --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.5;
+        }
+        #container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        h1 { margin: 0; font-size: 1.5rem; font-weight: 600; }
+        .status {
+            font-size: 0.875rem;
+            color: var(--text-sub);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #ef4444;
+            transition: background-color 0.3s;
+        }
+        .indicator.active { background-color: #22c55e; }
+        #logs {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .log-entry {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            border-left: 4px solid var(--accent);
+            animation: fadeIn 0.3s ease-out;
+        }
+        .log-meta {
+            color: var(--text-sub);
+            font-size: 0.75rem;
+            margin-bottom: 4px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .log-content { white-space: pre-wrap; word-break: break-all; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .empty-state {
+            text-align: center;
+            color: var(--text-sub);
+            padding: 40px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <header>
+            <h1>Real-time Log Stream</h1>
+            <div class="status">
+                <div id="connection-dot" class="indicator"></div>
+                <span id="connection-status">Disconnected</span>
+            </div>
+        </header>
+        <div id="logs">
+            <div class="empty-state">Waiting for logs...</div>
+        </div>
+    </div>
+
+    <script>
+        const logContainer = document.getElementById('logs');
+        const statusText = document.getElementById('connection-status');
+        const statusDot = document.getElementById('connection-dot');
+        let isConnected = false;
+        let hasLogs = false;
+
+        function connect() {
+            const evtSource = new EventSource("/events");
+            
+            evtSource.onopen = function() {
+                isConnected = true;
+                statusText.textContent = "Live";
+                statusDot.classList.add('active');
+            };
+
+            evtSource.onmessage = function(event) {
+                if (!hasLogs) {
+                    logContainer.innerHTML = '';
+                    hasLogs = true;
+                }
+                const data = JSON.parse(event.data);
+                addLogEntry(data);
+            };
+
+            evtSource.onerror = function(err) {
+                isConnected = false;
+                statusText.textContent = "Reconnecting...";
+                statusDot.classList.remove('active');
+                evtSource.close();
+                setTimeout(connect, 3000);
+            };
+        }
+
+        function addLogEntry(data) {
+            const el = document.createElement('div');
+            el.className = 'log-entry';
+            
+            const timestamp = new Date().toLocaleTimeString();
+            const ip = data.ip || 'unknown';
+            
+            // Format content nicely
+            let content = JSON.stringify(data, null, 2);
+            
+            el.innerHTML = `
+                <div class="log-meta">
+                    <span>${timestamp}</span>
+                    <span>${ip}</span>
+                </div>
+                <div class="log-content">${content}</div>
+            `;
+            
+            logContainer.prepend(el);
+            
+            // Keep DOM size manageable
+            if (logContainer.children.length > 500) {
+                logContainer.lastElementChild.remove();
+            }
+        }
+
+        connect();
+    </script>
+</body>
+</html>

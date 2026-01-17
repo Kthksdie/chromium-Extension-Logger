@@ -42,6 +42,8 @@ The extension can beam logs to a server on your local network.
     - A simple Python script is included to test this functionality.
     - Run: `python test_server.py`
     - It listens on port `8080` and prints received JSON objects to the console.
+    - **Web Dashboard**: Open `http://localhost:8080/` to view logs in real-time.
+    - **Themes**: Try the Phosphor Trace theme at `http://localhost:8080/phosphorTraceTheme.html`.
 
 ## Data Format
 
