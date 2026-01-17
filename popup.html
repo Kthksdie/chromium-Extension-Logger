@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tab Logger</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+
+<body>
+  <div class="header">
+    <h1>Tab Logs</h1>
+    <button id="clear-btn">Clear Logs</button>
+  </div>
+
+  <div class="settings-area">
+    <details>
+      <summary>Settings</summary>
+      <div class="settings-content">
+        <label for="receiver-url">Receiver URL:</label>
+        <input type="text" id="receiver-url" placeholder="http://192.168.1.24:8080/log" />
+        <button id="save-settings">Save</button>
+        <div id="status-msg"></div>
+      </div>
+    </details>
+  </div>
+
+  <div id="log-container">
+    <p class="empty-state">No logs yet.</p>
+  </div>
+  <script src="popup.js"></script>
+</body>
+
+</html>
