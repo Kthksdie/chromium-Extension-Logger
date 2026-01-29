@@ -67,3 +67,6 @@ Logs sent to the receiver are in JSON format:
 - `tabs`: detecting tab properties and updates.
 - `webNavigation`: Determining how the navigation occurred (link vs typed vs reload).
 - `host_permissions` (`http://*/*`): Required to send POST requests to arbitrary local IP addresses specified in settings.
+
+---
+*Created with [Gemini](https://gemini.google.com) by [Kthksdie](https://x.com/jasonlee2122).*
